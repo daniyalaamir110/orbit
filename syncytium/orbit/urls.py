@@ -29,6 +29,8 @@ urlpatterns = [
     path("account/", include("account.urls")),
     path("auth/", include("authentication.urls")),
     path("feed/", include("feed.urls")),
+    path("search/", include("search.urls")),
+    path("notifications/", include("notifications.urls")),
 ]
 
 # API docs

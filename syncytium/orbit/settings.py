@@ -24,15 +24,23 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/5.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = "django-insecure-h#qbiiv&gnn08*p^m^9^1=@t_+_d@l3on9hwvh@@bs69&-s8%e"
+SECRET_KEY = config(
+    "SECRET_KEY",
+    default="django-insecure-h#qbiiv&gnn08*p^m^9^1=@t_+_d@l3on9hwvh@@bs69&-s8%e",
+)
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = config("DEBUG", default=True, cast=bool)
 
-ALLOWED_HOSTS = ["localhost", "127.0.0.1"]
+ALLOWED_HOSTS = config(
+    "ALLOWED_HOSTS", default="localhost,127.0.0.1"
+).split(",")
 
 # CSRF
-CSRF_TRUSTED_ORIGINS = ["http://localhost:8000", "http://127.0.0.1:8000"]
+CSRF_TRUSTED_ORIGINS = config(
+    "CSRF_TRUSTED_ORIGINS",
+    default="http://localhost:8000,http://127.0.0.1:8000",
+).split(",")
 
 # Application definition
 
@@ -49,12 +57,30 @@ INSTALLED_APPS = [
     "drf_spectacular",
     "drf_spectacular_sidecar",
     "cities_light",
+    "django_elasticsearch_dsl",
     "core.apps.CoreConfig",
     "account.apps.AccountConfig",
     "authentication.apps.AuthenticationConfig",
     "feed.apps.FeedConfig",
+    "search.apps.SearchConfig",
+    "notifications.apps.NotificationsConfig",
     "django_rest_passwordreset",
 ]
+
+# Elasticsearch (search module). When ELASTICSEARCH_HOST is set the search API
+# uses Elasticsearch; otherwise it falls back to a database search backend
+# (so the app can deploy for free without an ES instance). Locally it defaults
+# to the dev container on 9201 (see docker-compose.yml). Set it to "" to force
+# the database backend locally.
+ELASTICSEARCH_HOST = config("ELASTICSEARCH_HOST", default="http://localhost:9201")
+SEARCH_USE_ES = bool(ELASTICSEARCH_HOST)
+ELASTICSEARCH_DSL = {
+    "default": {"hosts": ELASTICSEARCH_HOST or "http://localhost:9201"},
+}
+# Only auto-index to ES on model changes when ES is actually in use; otherwise
+# saves must not try (and fail) to reach a non-existent cluster.
+ELASTICSEARCH_DSL_AUTOSYNC = SEARCH_USE_ES
+ELASTICSEARCH_DSL_AUTO_REFRESH = SEARCH_USE_ES
 
 REST_FRAMEWORK = {
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
@@ -65,6 +91,7 @@ REST_FRAMEWORK = {
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "corsheaders.middleware.CorsMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -102,12 +129,21 @@ WSGI_APPLICATION = "orbit.wsgi.application"
 # Database
 # https://docs.djangoproject.com/en/5.0/ref/settings/#databases
 
-DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "db.sqlite3",
+# Uses DATABASE_URL (e.g. a managed Postgres) when set, else local SQLite.
+DATABASE_URL = config("DATABASE_URL", default="")
+if DATABASE_URL:
+    import dj_database_url
+
+    DATABASES = {
+        "default": dj_database_url.parse(DATABASE_URL, conn_max_age=600)
     }
-}
+else:
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.sqlite3",
+            "NAME": BASE_DIR / "db.sqlite3",
+        }
+    }
 
 
 # Password validation
@@ -147,6 +183,13 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/5.0/howto/static-files/
 
 STATIC_URL = "static/"
+STATIC_ROOT = BASE_DIR / "staticfiles"
+STORAGES = {
+    "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
+    "staticfiles": {
+        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage"
+    },
+}
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.0/ref/settings/#default-auto-field
@@ -170,16 +213,16 @@ SIMPLE_JWT = {
 # Email server configuration
 # EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
 EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
-EMAIL_HOST_USER = config("EMAIL_HOST_USER")
-EMAIL_HOST_PASSWORD = config("EMAIL_HOST_PASSWORD")
+EMAIL_HOST_USER = config("EMAIL_HOST_USER", default="")
+EMAIL_HOST_PASSWORD = config("EMAIL_HOST_PASSWORD", default="")
 EMAIL_HOST = "smtp.gmail.com"
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
 
 # Google OAuth2 configuration
 BASE_FRONTEND_URL = config("BASE_FRONTEND_URL", "http://localhost:3000")
-GOOGLE_OAUTH2_CLIENT_ID = config("GOOGLE_OAUTH2_CLIENT_ID")
-GOOGLE_OAUTH2_CLIENT_SECRET = config("GOOGLE_OAUTH2_CLIENT_SECRET")
+GOOGLE_OAUTH2_CLIENT_ID = config("GOOGLE_OAUTH2_CLIENT_ID", default="")
+GOOGLE_OAUTH2_CLIENT_SECRET = config("GOOGLE_OAUTH2_CLIENT_SECRET", default="")
 
 
 # Token

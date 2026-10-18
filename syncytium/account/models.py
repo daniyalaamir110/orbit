@@ -8,6 +8,26 @@ from core.models import PrivatizedModel, TimeStampedModel, TokenMixin
 User = get_user_model()
 
 
+class Follow(TimeStampedModel):
+    """A directed follow relationship between two users."""
+    follower = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="following"
+    )
+    following = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="followers"
+    )
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["follower", "following"], name="unique_follow"
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.follower} → {self.following}"
+
+
 class UserEmailStatus(TimeStampedModel, TokenMixin):
     """This model stores the user email status"""
     user = models.OneToOneField(

@@ -43,6 +43,19 @@ class UserSerializer(serializers.ModelSerializer):
         return f"{obj.first_name} {obj.last_name}".strip()
 
 
+class SuggestedUserSerializer(serializers.ModelSerializer):
+    """Compact user representation for friend suggestions."""
+
+    full_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = User
+        fields = ["id", "username", "first_name", "last_name", "full_name"]
+
+    def get_full_name(self, obj):
+        return f"{obj.first_name} {obj.last_name}".strip() or obj.username
+
+
 class ChangeEmailSerializer(serializers.ModelSerializer):
     """Change email serializer"""
 

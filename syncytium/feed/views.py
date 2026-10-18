@@ -6,6 +6,7 @@ from rest_framework.response import Response
 from rest_framework.viewsets import ModelViewSet
 
 from core.paginators import CustomLimitOffsetPagination
+from notifications.models import Notification
 
 from .models import Comment, Like, Post
 from .permissions import IsAuthorOrReadOnly
@@ -48,8 +49,22 @@ class PostViewSet(ModelViewSet):
         """Toggle the current user's like on a post."""
         post = self.get_object()
         like, created = Like.objects.get_or_create(post=post, user=request.user)
-        if not created:
+        if created:
+            Notification.push(
+                recipient=post.author,
+                actor=request.user,
+                verb=Notification.Verb.LIKE,
+                post=post,
+            )
+        else:
             like.delete()
+            # Drop the matching like notification so it doesn't linger.
+            Notification.objects.filter(
+                recipient=post.author,
+                actor=request.user,
+                verb=Notification.Verb.LIKE,
+                post=post,
+            ).delete()
         serializer = self.get_serializer(self.get_queryset().get(pk=post.pk))
         return Response(
             {"liked": created, "post": serializer.data},
@@ -64,6 +79,12 @@ class PostViewSet(ModelViewSet):
             serializer = CommentSerializer(data=request.data)
             serializer.is_valid(raise_exception=True)
             serializer.save(post=post, author=request.user)
+            Notification.push(
+                recipient=post.author,
+                actor=request.user,
+                verb=Notification.Verb.COMMENT,
+                post=post,
+            )
             return Response(serializer.data, status=status.HTTP_201_CREATED)
 
         queryset = post.comments.select_related("author")

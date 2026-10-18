@@ -1,29 +1,78 @@
 from django.contrib.auth import get_user_model
-from django.shortcuts import render
+from django.shortcuts import get_object_or_404, render
 from rest_framework.decorators import api_view, permission_classes
-from rest_framework.generics import CreateAPIView, RetrieveUpdateAPIView, UpdateAPIView
+from rest_framework.generics import CreateAPIView, ListAPIView, RetrieveUpdateAPIView, UpdateAPIView
 from rest_framework.permissions import IsAuthenticated, IsAuthenticatedOrReadOnly
 from rest_framework.response import Response
 from rest_framework.status import HTTP_200_OK, HTTP_400_BAD_REQUEST, HTTP_404_NOT_FOUND
+from rest_framework.views import APIView
 from rest_framework.viewsets import ModelViewSet
 
 from core.models import RegistrationMethod
+from notifications.models import Notification
 
 from .mixins import MustExistForUsernameAPIMixin
 from .models import (
-    UserAddress, UserEducation, UserEmailStatus, UserProfile,
+    Follow, UserAddress, UserEducation, UserEmailStatus, UserProfile,
     UserWorkExperience,
 )
 from .permissions import (
     IsCurrentUserOrReadOnlyPermission, IsCurrentUserPermission,
 )
 from .serializers import (
-    ChangeEmailSerializer, UserAddressSerializer, UserEducationSerializer, 
-    UserProfileSerializer, UserSerializer, UserWorkExperienceSerializer,
+    ChangeEmailSerializer, SuggestedUserSerializer, UserAddressSerializer,
+    UserEducationSerializer, UserProfileSerializer, UserSerializer,
+    UserWorkExperienceSerializer,
 )
 from .tasks import send_email_verification_link_email, send_registration_email
 
 User = get_user_model()
+
+
+class SuggestionsAPIView(ListAPIView):
+    """Suggest users to follow: excludes self and already-followed, random order."""
+    serializer_class = SuggestedUserSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        user = self.request.user
+        followed = Follow.objects.filter(follower=user).values_list(
+            "following_id", flat=True
+        )
+        limit = min(int(self.request.query_params.get("limit", 5) or 5), 20)
+        return (
+            User.objects.exclude(id=user.id)
+            .exclude(id__in=followed)
+            .order_by("?")[:limit]
+        )
+
+
+class FollowToggleAPIView(APIView):
+    """Toggle following the user named in the URL. Returns {following: bool}."""
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, username):
+        target = get_object_or_404(User, username=username)
+        if target == request.user:
+            return Response(
+                {"detail": "You cannot follow yourself."},
+                status=HTTP_400_BAD_REQUEST,
+            )
+        follow, created = Follow.objects.get_or_create(
+            follower=request.user, following=target
+        )
+        if created:
+            Notification.push(
+                recipient=target,
+                actor=request.user,
+                verb=Notification.Verb.FOLLOW,
+            )
+            return Response({"following": True}, status=HTTP_200_OK)
+        follow.delete()
+        Notification.objects.filter(
+            recipient=target, actor=request.user, verb=Notification.Verb.FOLLOW
+        ).delete()
+        return Response({"following": False}, status=HTTP_200_OK)
 
 
 class UserCreateAPIView(CreateAPIView):

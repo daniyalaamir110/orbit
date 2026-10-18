@@ -3,3 +3,4 @@ venv
 schema.yml
 .env
 Makefile
+staticfiles
