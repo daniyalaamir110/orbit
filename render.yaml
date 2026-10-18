@@ -1,0 +1,40 @@
+# Render blueprint for the Orbit API (Django).
+# Deploy: Render Dashboard → New → Blueprint → pick this repo.
+# You must set the "sync: false" env vars in the dashboard (they hold secrets
+# or per-environment values). See DEPLOY.md for the full walkthrough.
+services:
+  - type: web
+    name: orbit-api
+    runtime: python
+    plan: free
+    # requirements.txt is at the repo root; manage.py lives in ./orbit.
+    buildCommand: >-
+      pip install -r requirements.txt &&
+      cd orbit &&
+      python manage.py collectstatic --noinput &&
+      python manage.py migrate
+    startCommand: "cd orbit && gunicorn orbit.wsgi:application --bind 0.0.0.0:$PORT"
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.12.6"
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DEBUG
+        value: "False"
+      # Set to your Render URL host, e.g. orbit-api.onrender.com
+      - key: ALLOWED_HOSTS
+        sync: false
+      # Your Vercel frontend origin, e.g. https://orbit-client.vercel.app
+      - key: CORS_ALLOWED_ORIGINS
+        sync: false
+      # Your Render URL, e.g. https://orbit-api.onrender.com
+      - key: CSRF_TRUSTED_ORIGINS
+        sync: false
+      # Managed Postgres connection string (e.g. from Neon).
+      - key: DATABASE_URL
+        sync: false
+      # Leave empty to use the database search backend (no Elasticsearch needed).
+      - key: ELASTICSEARCH_HOST
+        value: ""
+      - key: BASE_FRONTEND_URL
+        sync: false
