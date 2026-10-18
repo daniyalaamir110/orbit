@@ -40,7 +40,7 @@ need to create the three free accounts and connect them.
 4. Deploy. The build runs `collectstatic` + `migrate` automatically.
 5. Open the Render **Shell** and seed a login + sample data:
    ```bash
-   cd syncytium && python manage.py seed_demo --users 60 --posts 6
+   cd orbit && python manage.py seed_demo --users 60 --posts 6
    ```
    This creates **demo / SyncoDemo123**.
 

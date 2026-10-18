@@ -7,13 +7,13 @@ services:
     name: orbit-api
     runtime: python
     plan: free
-    # requirements.txt is at the repo root; manage.py lives in ./syncytium.
+    # requirements.txt is at the repo root; manage.py lives in ./orbit.
     buildCommand: >-
       pip install -r requirements.txt &&
-      cd syncytium &&
+      cd orbit &&
       python manage.py collectstatic --noinput &&
       python manage.py migrate
-    startCommand: "cd syncytium && gunicorn orbit.wsgi:application --bind 0.0.0.0:$PORT"
+    startCommand: "cd orbit && gunicorn orbit.wsgi:application --bind 0.0.0.0:$PORT"
     envVars:
       - key: PYTHON_VERSION
         value: "3.12.6"
