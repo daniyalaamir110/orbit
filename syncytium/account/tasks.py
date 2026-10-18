@@ -17,9 +17,9 @@ def send_registration_email(user_id):
     if not user:
         print("Registration email not sent. User not found.")
         return
-    subject = "Welcome to Synco"
+    subject = "Welcome to Orbit"
     message = (
-        f"Hi {user.first_name}, welcome to Synco! We are glad to have "
+        f"Hi {user.first_name}, welcome to Orbit! We are glad to have "
         f"you joined. Visit our app here: {FRONTEND_APP_URL}"
     )
     recipient_list = [user.email]
