@@ -28,4 +28,4 @@ class MustExistForUsernameAPIMixin:
         except self.model.DoesNotExist:
             if self.request.method in SAFE_METHODS or not create:
                 raise NotFound
-            return self.model.create(user_id=self.request.user.id)
+            return self.model.objects.create(user_id=self.request.user.id)

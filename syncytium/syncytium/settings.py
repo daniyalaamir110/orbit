@@ -52,6 +52,7 @@ INSTALLED_APPS = [
     "core.apps.CoreConfig",
     "account.apps.AccountConfig",
     "authentication.apps.AuthenticationConfig",
+    "feed.apps.FeedConfig",
     "django_rest_passwordreset",
 ]
 
